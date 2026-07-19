@@ -32,6 +32,7 @@ const PIPELINE_STAGES = [
 
 export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
   const [leads, setLeads] = useState([]);
   const [selectedSource, setSelectedSource] = useState('All');
   const [editingLead, setEditingLead] = useState(null);
@@ -58,19 +59,24 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
 
   useEffect(() => {
     const loadLeads = async () => {
-      setLoading(true);
-      const allLeads = await getLeads();
-      setLeads(allLeads);
-      
-      // If we navigate here with an active lead ID from dashboard
-      if (activeLeadId) {
-        const lead = allLeads.find(l => l.id === activeLeadId);
-        if (lead) {
-          setEditingLead(lead);
+      try {
+        setLoading(true);
+        const allLeads = await getLeads();
+        setLeads(allLeads);
+        
+        // If we navigate here with an active lead ID from dashboard
+        if (activeLeadId) {
+          const lead = allLeads.find(l => l.id === activeLeadId);
+          if (lead) {
+            setEditingLead(lead);
+          }
+          clearActiveLeadId();
         }
-        clearActiveLeadId();
+      } catch (err) {
+        console.error("Error loading leads:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     
     loadLeads();
@@ -261,25 +267,33 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
       }
     ];
 
-    await addLead({
-      ...newLeadForm,
-      notes
-    });
+    try {
+      setProcessing(true);
+      await addLead({
+        ...newLeadForm,
+        notes
+      });
 
-    // Reset Form
-    setNewLeadForm({
-      name: '',
-      instagram_handle: '',
-      niche: '',
-      city: '',
-      source: 'DM Outreach',
-      stage: 'To DM',
-      deal_value: '',
-      next_action: '',
-      next_action_date: getLocalDateString()
-    });
-    setFormErrors({});
-    setIsAddModalOpen(false);
+      // Reset Form
+      setNewLeadForm({
+        name: '',
+        instagram_handle: '',
+        niche: '',
+        city: '',
+        source: 'DM Outreach',
+        stage: 'To DM',
+        deal_value: '',
+        next_action: '',
+        next_action_date: getLocalDateString()
+      });
+      setFormErrors({});
+      setIsAddModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add lead to Supabase database.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   // Lead Editing Save
@@ -291,14 +305,30 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
       return;
     }
     
-    await updateLead(editingLead.id, editingLead);
-    setEditingLead(null);
+    try {
+      setProcessing(true);
+      await updateLead(editingLead.id, editingLead);
+      setEditingLead(null);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update lead details in Supabase.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleDelete = async (leadId) => {
     if (confirm('Are you sure you want to delete this lead? This will also delete any client payment records.')) {
-      await deleteLead(leadId);
-      setEditingLead(null);
+      try {
+        setProcessing(true);
+        await deleteLead(leadId);
+        setEditingLead(null);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete lead from database.');
+      } finally {
+        setProcessing(false);
+      }
     }
   };
 
@@ -636,11 +666,11 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)} disabled={processing}>
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary">
-                Create Lead
+              <button type="submit" className="btn btn-primary" disabled={processing}>
+                {processing ? 'Adding lead...' : 'Create Lead'}
               </button>
             </div>
           </form>
@@ -785,11 +815,11 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
-                  <button type="button" className="btn btn-danger" onClick={() => handleDelete(editingLead.id)}>
-                    <Trash2 size={14} /> Delete Lead
+                  <button type="button" className="btn btn-danger" onClick={() => handleDelete(editingLead.id)} disabled={processing}>
+                    {processing ? 'Deleting...' : <><Trash2 size={14} /> Delete Lead</>}
                   </button>
-                  <button type="submit" className="btn btn-primary">
-                    Save Changes
+                  <button type="submit" className="btn btn-primary" disabled={processing}>
+                    {processing ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
