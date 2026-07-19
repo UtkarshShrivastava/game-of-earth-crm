@@ -205,6 +205,21 @@ export async function clearDemoData() {
 }
 
 // LEADS
+const formatLeadNotes = (lead) => {
+  if (!lead.notes) return [];
+  try {
+    if (Array.isArray(lead.notes)) {
+      return lead.notes;
+    } else if (typeof lead.notes === 'string') {
+      const parsed = JSON.parse(lead.notes);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error("Error parsing notes for lead:", lead.id, e);
+  }
+  return [];
+};
+
 export async function getLeads() {
   const { data: { user } } = await getSessionUser();
   if (!user) return [];
@@ -216,7 +231,14 @@ export async function getLeads() {
       .order('created_date', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) {
-          const fresh = data.map(l => ({ ...l, score: calculateLeadScore(l) }));
+          const fresh = data.map(l => {
+            const parsedNotes = formatLeadNotes(l);
+            return {
+              ...l,
+              notes: parsedNotes,
+              score: calculateLeadScore({ ...l, notes: parsedNotes })
+            };
+          });
           if (JSON.stringify(cacheLeads) !== JSON.stringify(fresh)) {
             cacheLeads = fresh;
             window.dispatchEvent(new Event('goe_state_change'));
@@ -235,10 +257,15 @@ export async function getLeads() {
     console.error('getLeads error:', error);
     return [];
   }
-  cacheLeads = data.map(l => ({
-    ...l,
-    score: calculateLeadScore(l)
-  }));
+
+  cacheLeads = data.map(l => {
+    const parsedNotes = formatLeadNotes(l);
+    return {
+      ...l,
+      notes: parsedNotes,
+      score: calculateLeadScore({ ...l, notes: parsedNotes })
+    };
+  });
   return cacheLeads;
 }
 
@@ -321,7 +348,8 @@ export async function addLead(lead) {
   }
 
   if (cacheLeads) {
-    cacheLeads = cacheLeads.map(l => l.id === tempId ? { ...data, score: calculateLeadScore(data) } : l);
+    const formatted = { ...data, notes: formatLeadNotes(data) };
+    cacheLeads = cacheLeads.map(l => l.id === tempId ? { ...formatted, score: calculateLeadScore(formatted) } : l);
     window.dispatchEvent(new Event('goe_state_change'));
   }
   return data;
@@ -392,7 +420,8 @@ export async function updateLead(leadId, updates) {
   }
 
   if (cacheLeads) {
-    cacheLeads = cacheLeads.map(l => l.id === leadId ? { ...data, score: calculateLeadScore(data) } : l);
+    const formatted = { ...data, notes: formatLeadNotes(data) };
+    cacheLeads = cacheLeads.map(l => l.id === leadId ? { ...formatted, score: calculateLeadScore(formatted) } : l);
     window.dispatchEvent(new Event('goe_state_change'));
   }
   return data;
