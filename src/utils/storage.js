@@ -1,5 +1,19 @@
 import { supabase } from './supabaseClient';
 
+let currentUser = null;
+
+// Listen to auth changes to update currentUser cache in memory
+supabase.auth.onAuthStateChange((_event, session) => {
+  currentUser = session?.user || null;
+});
+
+export async function getSessionUser() {
+  if (currentUser) return { data: { user: currentUser } };
+  const { data: { session } } = await supabase.auth.getSession();
+  currentUser = session?.user || null;
+  return { data: { user: currentUser } };
+}
+
 export function getLocalDateString(date = new Date()) {
   const offset = date.getTimezoneOffset();
   const localDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -52,9 +66,20 @@ export function calculateLeadScore(lead) {
       break;
   }
 
-  if (lead.notes && lead.notes.length > 0) {
-    const positiveLogsCount = lead.notes.filter(note => 
-      ['Replied', 'Free video sent', 'Meeting booked', 'Call done'].includes(note.type)
+  let notesArray = [];
+  try {
+    if (Array.isArray(lead.notes)) {
+      notesArray = lead.notes;
+    } else if (typeof lead.notes === 'string') {
+      notesArray = JSON.parse(lead.notes);
+    }
+  } catch (e) {
+    console.error("Failed to parse notes for score:", e);
+  }
+
+  if (notesArray && notesArray.length > 0) {
+    const positiveLogsCount = notesArray.filter(note => 
+      note && ['Replied', 'Free video sent', 'Meeting booked', 'Call done'].includes(note.type)
     ).length;
     score += Math.min(20, positiveLogsCount * 5);
   }
@@ -109,12 +134,12 @@ export function initializeStorage() {}
 
 // Dynamic user metadata Streak Shields
 export async function getShieldsInfo() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) return { shields: 0, shields_awarded: 0, shielded_dates: [] };
   checkCacheUser(user);
 
   if (cacheShields) {
-    supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
+    getSessionUser().then(({ data: { user: freshUser } }) => {
       if (freshUser) {
         const meta = freshUser.user_metadata || {};
         const fresh = {
@@ -141,7 +166,7 @@ export async function getShieldsInfo() {
 }
 
 export async function saveShieldsInfo(info) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) return;
   checkCacheUser(user);
 
@@ -164,7 +189,7 @@ export async function saveShieldsInfo(info) {
 
 // WIPE DB FOR THE USER
 export async function clearDemoData() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) return;
   
   cacheLeads = [];
@@ -181,7 +206,7 @@ export async function clearDemoData() {
 
 // LEADS
 export async function getLeads() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) return [];
   checkCacheUser(user);
 
@@ -222,7 +247,7 @@ export async function saveLeads(leads) {
 }
 
 export async function addLead(lead) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) throw new Error('Not authenticated');
   checkCacheUser(user);
 
@@ -303,7 +328,7 @@ export async function addLead(lead) {
 }
 
 export async function updateLead(leadId, updates) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) throw new Error('Not authenticated');
   checkCacheUser(user);
 
@@ -374,7 +399,7 @@ export async function updateLead(leadId, updates) {
 }
 
 export async function deleteLead(leadId) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) throw new Error('Not authenticated');
   checkCacheUser(user);
 
@@ -396,7 +421,7 @@ export async function deleteLead(leadId) {
 
 // PAYMENTS
 export async function getPayments() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) return [];
   checkCacheUser(user);
 
@@ -436,7 +461,7 @@ export async function savePayments(payments) {
 }
 
 export async function addPayment(payment) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) throw new Error('Not authenticated');
   checkCacheUser(user);
 
@@ -490,7 +515,7 @@ export async function addPayment(payment) {
 }
 
 export async function updatePayment(paymentId, updates) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) throw new Error('Not authenticated');
   checkCacheUser(user);
 
@@ -526,7 +551,7 @@ export async function updatePayment(paymentId, updates) {
 }
 
 export async function deletePayment(paymentId) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) throw new Error('Not authenticated');
   checkCacheUser(user);
 
@@ -548,7 +573,7 @@ export async function deletePayment(paymentId) {
 
 // DAILY ACTIVITY LOGS
 export async function getDailyLogs() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) return {};
   checkCacheUser(user);
 
@@ -604,7 +629,7 @@ export async function getDailyLogs() {
 }
 
 export async function saveDailyLogs(logs) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) return;
   checkCacheUser(user);
 
@@ -635,7 +660,7 @@ export async function saveDailyLogs(logs) {
 }
 
 export async function incrementLogCount(dateStr, key, amount = 1) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getSessionUser();
   if (!user) throw new Error('Not authenticated');
   checkCacheUser(user);
 
@@ -1225,7 +1250,7 @@ export async function exportDatabase() {
 export async function importDatabase(jsonString) {
   try {
     const db = JSON.parse(jsonString);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionUser();
     if (!user) return false;
     
     // 1. Clear existing database for this user
