@@ -79,6 +79,31 @@ export function getScoreCategory(score) {
   return { label: 'COLD', color: 'var(--text-muted)' };
 }
 
+// In-memory caching layer for instant (0ms latency) optimistic updates
+let cacheLeads = null;
+let cachePayments = null;
+let cacheDailyLogs = null;
+let cacheShields = null;
+let cacheUserId = null;
+
+function checkCacheUser(user) {
+  if (!user) {
+    cacheLeads = null;
+    cachePayments = null;
+    cacheDailyLogs = null;
+    cacheShields = null;
+    cacheUserId = null;
+    return;
+  }
+  if (cacheUserId !== user.id) {
+    cacheLeads = null;
+    cachePayments = null;
+    cacheDailyLogs = null;
+    cacheShields = null;
+    cacheUserId = user.id;
+  }
+}
+
 // Empty placeholder for back-compat
 export function initializeStorage() {}
 
@@ -86,25 +111,55 @@ export function initializeStorage() {}
 export async function getShieldsInfo() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { shields: 0, shields_awarded: 0, shielded_dates: [] };
+  checkCacheUser(user);
+
+  if (cacheShields) {
+    supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
+      if (freshUser) {
+        const meta = freshUser.user_metadata || {};
+        const fresh = {
+          shields: Number(meta.shields || 0),
+          shields_awarded: Number(meta.shields_awarded || 0),
+          shielded_dates: meta.shielded_dates || []
+        };
+        if (JSON.stringify(cacheShields) !== JSON.stringify(fresh)) {
+          cacheShields = fresh;
+          window.dispatchEvent(new Event('goe_state_change'));
+        }
+      }
+    });
+    return cacheShields;
+  }
+
   const meta = user.user_metadata || {};
-  return {
+  cacheShields = {
     shields: Number(meta.shields || 0),
     shields_awarded: Number(meta.shields_awarded || 0),
     shielded_dates: meta.shielded_dates || []
   };
+  return cacheShields;
 }
 
 export async function saveShieldsInfo(info) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
+  checkCacheUser(user);
+
+  cacheShields = {
+    shields: info.shields,
+    shields_awarded: info.shields_awarded,
+    shielded_dates: info.shielded_dates
+  };
+  window.dispatchEvent(new Event('goe_state_change'));
+
   await supabase.auth.updateUser({
     data: {
       shields: info.shields,
       shields_awarded: info.shields_awarded,
+      shadow_shielded_dates: info.shielded_dates, // compat
       shielded_dates: info.shielded_dates
     }
   });
-  window.dispatchEvent(new Event('goe_state_change'));
 }
 
 // WIPE DB FOR THE USER
@@ -112,17 +167,39 @@ export async function clearDemoData() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   
+  cacheLeads = [];
+  cachePayments = [];
+  cacheDailyLogs = {};
+  cacheShields = { shields: 0, shields_awarded: 0, shielded_dates: [] };
+  window.dispatchEvent(new Event('goe_state_change'));
+
   await supabase.from('leads').delete().eq('user_id', user.id);
   await supabase.from('payments').delete().eq('user_id', user.id);
   await supabase.from('daily_logs').delete().eq('user_id', user.id);
   await saveShieldsInfo({ shields: 0, shields_awarded: 0, shielded_dates: [] });
-  window.dispatchEvent(new Event('goe_state_change'));
 }
 
 // LEADS
 export async function getLeads() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
+  checkCacheUser(user);
+
+  if (cacheLeads) {
+    supabase.from('leads')
+      .select('*')
+      .order('created_date', { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const fresh = data.map(l => ({ ...l, score: calculateLeadScore(l) }));
+          if (JSON.stringify(cacheLeads) !== JSON.stringify(fresh)) {
+            cacheLeads = fresh;
+            window.dispatchEvent(new Event('goe_state_change'));
+          }
+        }
+      });
+    return cacheLeads;
+  }
 
   const { data, error } = await supabase
     .from('leads')
@@ -133,10 +210,11 @@ export async function getLeads() {
     console.error('getLeads error:', error);
     return [];
   }
-  return data.map(l => ({
+  cacheLeads = data.map(l => ({
     ...l,
     score: calculateLeadScore(l)
   }));
+  return cacheLeads;
 }
 
 export async function saveLeads(leads) {
@@ -146,8 +224,11 @@ export async function saveLeads(leads) {
 export async function addLead(lead) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  checkCacheUser(user);
 
-  const newLead = {
+  const tempId = 'temp-' + Date.now();
+  const tempLead = {
+    id: tempId,
     user_id: user.id,
     name: lead.name,
     instagram_handle: lead.instagram_handle,
@@ -170,48 +251,105 @@ export async function addLead(lead) {
     monthly_retainer: Number(lead.monthly_retainer) || null,
     start_date: lead.start_date || null,
     videos_per_month: lead.videos_per_month ? Number(lead.videos_per_month) : null,
-    lost_reason: lead.lost_reason || null
+    lost_reason: lead.lost_reason || null,
+    score: 0
   };
+  tempLead.score = calculateLeadScore(tempLead);
+
+  if (cacheLeads) {
+    cacheLeads = [...cacheLeads, tempLead];
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
 
   const { data, error } = await supabase
     .from('leads')
-    .insert(newLead)
+    .insert({
+      user_id: user.id,
+      name: tempLead.name,
+      instagram_handle: tempLead.instagram_handle,
+      avatar: tempLead.avatar,
+      niche: tempLead.niche,
+      city: tempLead.city,
+      source: tempLead.source,
+      stage: tempLead.stage,
+      deal_value: tempLead.deal_value,
+      next_action: tempLead.next_action,
+      next_action_date: tempLead.next_action_date,
+      last_touch_date: tempLead.last_touch_date,
+      created_date: tempLead.created_date,
+      notes: tempLead.notes,
+      monthly_retainer: tempLead.monthly_retainer,
+      start_date: tempLead.start_date,
+      videos_per_month: tempLead.videos_per_month,
+      lost_reason: tempLead.lost_reason
+    })
     .select()
     .single();
 
   if (error) {
+    if (cacheLeads) {
+      cacheLeads = cacheLeads.filter(l => l.id !== tempId);
+      window.dispatchEvent(new Event('goe_state_change'));
+    }
     console.error('addLead error:', error);
     throw error;
   }
-  window.dispatchEvent(new Event('goe_state_change'));
+
+  if (cacheLeads) {
+    cacheLeads = cacheLeads.map(l => l.id === tempId ? { ...data, score: calculateLeadScore(data) } : l);
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
   return data;
 }
 
 export async function updateLead(leadId, updates) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  checkCacheUser(user);
 
-  const { data: original, error: fetchErr } = await supabase
+  let original = null;
+  if (cacheLeads) {
+    original = cacheLeads.find(l => l.id === leadId);
+    if (original) {
+      const stageChanged = updates.stage && updates.stage !== original.stage;
+      const noteAdded = updates.notes && updates.notes.length > (original.notes?.length || 0);
+
+      const optimisticLead = {
+        ...original,
+        ...updates,
+        last_touch_date: (stageChanged || noteAdded) ? new Date().toISOString() : original.last_touch_date
+      };
+
+      if (optimisticLead.stage === 'Won' && original.stage !== 'Won') {
+        optimisticLead.monthly_retainer = optimisticLead.monthly_retainer || optimisticLead.deal_value || original.deal_value || 0;
+        optimisticLead.start_date = optimisticLead.start_date || getLocalDateString();
+        optimisticLead.videos_per_month = optimisticLead.videos_per_month || 8;
+      }
+      optimisticLead.score = calculateLeadScore(optimisticLead);
+
+      cacheLeads = cacheLeads.map(l => l.id === leadId ? optimisticLead : l);
+      window.dispatchEvent(new Event('goe_state_change'));
+    }
+  }
+
+  const { data: serverOriginal } = await supabase
     .from('leads')
     .select('*')
     .eq('id', leadId)
     .single();
 
-  if (fetchErr || !original) {
-    console.error('updateLead fetch original error:', fetchErr);
-    return null;
-  }
+  if (!serverOriginal) return null;
 
-  const stageChanged = updates.stage && updates.stage !== original.stage;
-  const noteAdded = updates.notes && updates.notes.length > (original.notes?.length || 0);
+  const stageChanged = updates.stage && updates.stage !== serverOriginal.stage;
+  const noteAdded = updates.notes && updates.notes.length > (serverOriginal.notes?.length || 0);
 
   const fieldsToUpdate = {
     ...updates,
-    last_touch_date: (stageChanged || noteAdded) ? new Date().toISOString() : original.last_touch_date
+    last_touch_date: (stageChanged || noteAdded) ? new Date().toISOString() : serverOriginal.last_touch_date
   };
 
-  if (fieldsToUpdate.stage === 'Won' && original.stage !== 'Won') {
-    fieldsToUpdate.monthly_retainer = fieldsToUpdate.monthly_retainer || fieldsToUpdate.deal_value || original.deal_value || 0;
+  if (fieldsToUpdate.stage === 'Won' && serverOriginal.stage !== 'Won') {
+    fieldsToUpdate.monthly_retainer = fieldsToUpdate.monthly_retainer || fieldsToUpdate.deal_value || serverOriginal.deal_value || 0;
     fieldsToUpdate.start_date = fieldsToUpdate.start_date || getLocalDateString();
     fieldsToUpdate.videos_per_month = fieldsToUpdate.videos_per_month || 8;
   }
@@ -224,14 +362,27 @@ export async function updateLead(leadId, updates) {
     .single();
 
   if (error) {
-    console.error('updateLead error:', error);
-    throw error;
+    console.error('updateLead database error:', error);
+    return null;
   }
-  window.dispatchEvent(new Event('goe_state_change'));
+
+  if (cacheLeads) {
+    cacheLeads = cacheLeads.map(l => l.id === leadId ? { ...data, score: calculateLeadScore(data) } : l);
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
   return data;
 }
 
 export async function deleteLead(leadId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  checkCacheUser(user);
+
+  if (cacheLeads) {
+    cacheLeads = cacheLeads.filter(l => l.id !== leadId);
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
+
   const { error } = await supabase
     .from('leads')
     .delete()
@@ -241,13 +392,28 @@ export async function deleteLead(leadId) {
     console.error('deleteLead error:', error);
     throw error;
   }
-  window.dispatchEvent(new Event('goe_state_change'));
 }
 
 // PAYMENTS
 export async function getPayments() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
+  checkCacheUser(user);
+
+  if (cachePayments) {
+    supabase.from('payments')
+      .select('*')
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const mapped = data.map(p => ({ ...p, clientId: p.client_id }));
+          if (JSON.stringify(cachePayments) !== JSON.stringify(mapped)) {
+            cachePayments = mapped;
+            window.dispatchEvent(new Event('goe_state_change'));
+          }
+        }
+      });
+    return cachePayments;
+  }
 
   const { data, error } = await supabase
     .from('payments')
@@ -258,11 +424,11 @@ export async function getPayments() {
     return [];
   }
 
-  // Map database client_id to component clientId expectation
-  return data.map(p => ({
+  cachePayments = data.map(p => ({
     ...p,
     clientId: p.client_id
   }));
+  return cachePayments;
 }
 
 export async function savePayments(payments) {
@@ -272,9 +438,13 @@ export async function savePayments(payments) {
 export async function addPayment(payment) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  checkCacheUser(user);
 
-  const newPayment = {
+  const tempId = 'temp-' + Date.now();
+  const optimisticPayment = {
+    id: tempId,
     user_id: user.id,
+    clientId: payment.clientId || payment.client_id,
     client_id: payment.clientId || payment.client_id,
     amount: Number(payment.amount) || 0,
     amount_paid: Number(payment.amount_paid) || 0,
@@ -283,24 +453,52 @@ export async function addPayment(payment) {
     status: payment.status || 'Pending'
   };
 
+  if (cachePayments) {
+    cachePayments = [...cachePayments, optimisticPayment];
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
+
   const { data, error } = await supabase
     .from('payments')
-    .insert(newPayment)
+    .insert({
+      user_id: user.id,
+      client_id: optimisticPayment.client_id,
+      amount: optimisticPayment.amount,
+      amount_paid: optimisticPayment.amount_paid,
+      due_date: optimisticPayment.due_date,
+      paid_date: optimisticPayment.paid_date,
+      status: optimisticPayment.status
+    })
     .select()
     .single();
 
   if (error) {
+    if (cachePayments) {
+      cachePayments = cachePayments.filter(p => p.id !== tempId);
+      window.dispatchEvent(new Event('goe_state_change'));
+    }
     console.error('addPayment error:', error);
     throw error;
   }
-  window.dispatchEvent(new Event('goe_state_change'));
-  return {
-    ...data,
-    clientId: data.client_id
-  };
+
+  const result = { ...data, clientId: data.client_id };
+  if (cachePayments) {
+    cachePayments = cachePayments.map(p => p.id === tempId ? result : p);
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
+  return result;
 }
 
 export async function updatePayment(paymentId, updates) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  checkCacheUser(user);
+
+  if (cachePayments) {
+    cachePayments = cachePayments.map(p => p.id === paymentId ? { ...p, ...updates } : p);
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
+
   const payload = { ...updates };
   if (payload.clientId) {
     payload.client_id = payload.clientId;
@@ -318,14 +516,25 @@ export async function updatePayment(paymentId, updates) {
     console.error('updatePayment error:', error);
     throw error;
   }
-  window.dispatchEvent(new Event('goe_state_change'));
-  return {
-    ...data,
-    clientId: data.client_id
-  };
+
+  const result = { ...data, clientId: data.client_id };
+  if (cachePayments) {
+    cachePayments = cachePayments.map(p => p.id === paymentId ? result : p);
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
+  return result;
 }
 
 export async function deletePayment(paymentId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  checkCacheUser(user);
+
+  if (cachePayments) {
+    cachePayments = cachePayments.filter(p => p.id !== paymentId);
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
+
   const { error } = await supabase
     .from('payments')
     .delete()
@@ -335,17 +544,44 @@ export async function deletePayment(paymentId) {
     console.error('deletePayment error:', error);
     throw error;
   }
-  window.dispatchEvent(new Event('goe_state_change'));
 }
 
 // DAILY ACTIVITY LOGS
 export async function getDailyLogs() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return {};
+  checkCacheUser(user);
+
+  if (cacheDailyLogs) {
+    supabase.from('daily_logs')
+      .select('*')
+      .eq('user_id', user.id)
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const fresh = {};
+          data.forEach(log => {
+            fresh[log.log_date] = {
+              dms_sent: log.dms_sent,
+              replies_received: log.replies_received,
+              free_videos_sent: log.free_videos_sent,
+              meetings_booked: log.meetings_booked,
+              videos_delivered: log.videos_delivered,
+              content_posted: log.content_posted
+            };
+          });
+          if (JSON.stringify(cacheDailyLogs) !== JSON.stringify(fresh)) {
+            cacheDailyLogs = fresh;
+            window.dispatchEvent(new Event('goe_state_change'));
+          }
+        }
+      });
+    return cacheDailyLogs;
+  }
 
   const { data, error } = await supabase
     .from('daily_logs')
-    .select('*');
+    .select('*')
+    .eq('user_id', user.id);
 
   if (error) {
     console.error('getDailyLogs error:', error);
@@ -363,12 +599,17 @@ export async function getDailyLogs() {
       content_posted: log.content_posted
     };
   });
-  return dict;
+  cacheDailyLogs = dict;
+  return cacheDailyLogs;
 }
 
 export async function saveDailyLogs(logs) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
+  checkCacheUser(user);
+
+  cacheDailyLogs = { ...logs };
+  window.dispatchEvent(new Event('goe_state_change'));
 
   const rows = Object.entries(logs).map(([dateStr, log]) => ({
     user_id: user.id,
@@ -391,24 +632,15 @@ export async function saveDailyLogs(logs) {
   }
 
   await updateStreakShieldsEarned();
-  window.dispatchEvent(new Event('goe_state_change'));
 }
 
 export async function incrementLogCount(dateStr, key, amount = 1) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  checkCacheUser(user);
 
-  const { data, error: fetchErr } = await supabase
-    .from('daily_logs')
-    .select('*')
-    .eq('log_date', dateStr)
-    .maybeSingle();
-
-  if (fetchErr) {
-    console.error('incrementLogCount fetch error:', fetchErr);
-  }
-
-  const current = data || {
+  if (!cacheDailyLogs) cacheDailyLogs = {};
+  const current = cacheDailyLogs[dateStr] || {
     dms_sent: 0,
     replies_received: 0,
     free_videos_sent: 0,
@@ -424,17 +656,45 @@ export async function incrementLogCount(dateStr, key, amount = 1) {
     updatedVal = Math.max(0, (current[key] || 0) + amount);
   }
 
+  cacheDailyLogs[dateStr] = {
+    ...current,
+    [key]: updatedVal
+  };
+  window.dispatchEvent(new Event('goe_state_change'));
+
+  const { data: serverLogs } = await supabase
+    .from('daily_logs')
+    .select('*')
+    .eq('log_date', dateStr)
+    .maybeSingle();
+
+  const serverCurrent = serverLogs || {
+    dms_sent: 0,
+    replies_received: 0,
+    free_videos_sent: 0,
+    meetings_booked: 0,
+    videos_delivered: 0,
+    content_posted: false
+  };
+
+  let serverUpdatedVal;
+  if (key === 'content_posted') {
+    serverUpdatedVal = !serverCurrent.content_posted;
+  } else {
+    serverUpdatedVal = Math.max(0, (serverCurrent[key] || 0) + amount);
+  }
+
   const payload = {
     user_id: user.id,
     log_date: dateStr,
-    dms_sent: current.dms_sent,
-    replies_received: current.replies_received,
-    free_videos_sent: current.free_videos_sent,
-    meetings_booked: current.meetings_booked,
-    videos_delivered: current.videos_delivered,
-    content_posted: current.content_posted
+    dms_sent: serverCurrent.dms_sent,
+    replies_received: serverCurrent.replies_received,
+    free_videos_sent: serverCurrent.free_videos_sent,
+    meetings_booked: serverCurrent.meetings_booked,
+    videos_delivered: serverCurrent.videos_delivered,
+    content_posted: serverCurrent.content_posted
   };
-  payload[key] = updatedVal;
+  payload[key] = serverUpdatedVal;
 
   const { error } = await supabase
     .from('daily_logs')
@@ -446,9 +706,26 @@ export async function incrementLogCount(dateStr, key, amount = 1) {
   }
 
   await updateStreakShieldsEarned();
-  window.dispatchEvent(new Event('goe_state_change'));
   
-  // Return the updated dictionary day structure
+  // Re-fetch final to align with database updates
+  const { data: finalData } = await supabase
+    .from('daily_logs')
+    .select('*')
+    .eq('log_date', dateStr)
+    .maybeSingle();
+
+  if (finalData) {
+    cacheDailyLogs[dateStr] = {
+      dms_sent: finalData.dms_sent || 0,
+      replies_received: finalData.replies_received || 0,
+      free_videos_sent: finalData.free_videos_sent || 0,
+      meetings_booked: finalData.meetings_booked || 0,
+      videos_delivered: finalData.videos_delivered || 0,
+      content_posted: finalData.content_posted || false
+    };
+    window.dispatchEvent(new Event('goe_state_change'));
+  }
+  
   return payload;
 }
 

@@ -862,32 +862,41 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
                 </div>
 
                 {/* History timeline list */}
-                <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
-                  {(!editingLead.notes || editingLead.notes.length === 0) ? (
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No activities logged yet.</span>
-                  ) : (
-                    editingLead.notes.slice().reverse().map(note => (
-                      <div key={note.id} style={{ background: 'var(--bg-darker)', border: '1px solid var(--border)', borderRadius: '4px', padding: '8px 10px', fontSize: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '10px' }}>
-                          <span style={{ 
-                            color: note.type === 'DM sent' ? 'var(--amber)' : 
-                                   note.type === 'Replied' ? 'var(--cyan)' : 
-                                   note.type === 'Free video sent' ? 'var(--green)' : 
-                                   note.type === 'Meeting booked' ? 'var(--amber)' : 'var(--text-muted)',
-                            fontWeight: 700, 
-                            textTransform: 'uppercase' 
-                          }}>
-                            {note.type}
-                          </span>
-                          <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                            {new Date(note.date).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <p style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{note.content}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
+                 <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                   {(() => {
+                     let notesArray = [];
+                     try {
+                       if (Array.isArray(editingLead.notes)) {
+                         notesArray = editingLead.notes;
+                       } else if (typeof editingLead.notes === 'string') {
+                         notesArray = JSON.parse(editingLead.notes);
+                       }
+                     } catch (e) {
+                       console.error("Failed to parse notes:", e);
+                     }
+                     if (!notesArray || notesArray.length === 0) {
+                       return <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No activities logged yet.</span>;
+                     }
+                     return notesArray.slice().reverse().map(note => (
+                       <div key={note.id} style={{ background: 'var(--bg-darker)', border: '1px solid var(--border)', borderRadius: '4px', padding: '8px 10px', fontSize: '12px' }}>
+                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '10px' }}>
+                           <span style={{ 
+                             color: note.type === 'DM sent' ? 'var(--amber)' : 
+                                    note.type === 'Replied' ? 'var(--cyan)' : 
+                                    note.type === 'Free video sent' ? 'var(--green)' : 
+                                    note.type === 'Meeting booked' ? 'var(--amber)' : 'var(--text-muted)',
+                             fontWeight: 700, 
+                             textTransform: 'uppercase' 
+                           }}>
+                             {note.type}
+                           </span>
+                           <span style={{ color: 'var(--text-muted)' }}>{new Date(note.date).toLocaleDateString('en-IN')}</span>
+                         </div>
+                         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{note.content}</p>
+                       </div>
+                     ));
+                   })()}
+                 </div>
               </div>
 
             </div>
