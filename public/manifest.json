@@ -1,0 +1,16 @@
+{
+  "short_name": "Game of Earth",
+  "name": "Game of Earth Outreach CRM",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1a1a17",
+  "theme_color": "#ffb02e",
+  "display": "standalone",
+  "orientation": "portrait"
+}
