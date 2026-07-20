@@ -137,8 +137,6 @@ export default function QuickLogModal({ isOpen, onClose }) {
     e.preventDefault();
     const errors = {};
     if (!leadForm.name.trim()) errors.name = 'Name is required';
-    if (!leadForm.instagram_handle.trim()) errors.instagram_handle = 'Instagram handle is required';
-    if (!leadForm.next_action.trim()) errors.next_action = 'Next action is required';
     if (!leadForm.next_action_date) errors.next_action_date = 'Next action date is required';
     
     if (Object.keys(errors).length > 0) {
@@ -157,6 +155,8 @@ export default function QuickLogModal({ isOpen, onClose }) {
 
     await addLead({
       ...leadForm,
+      instagram_handle: leadForm.instagram_handle.trim(),
+      next_action: leadForm.next_action.trim() || 'Decide next steps',
       notes
     });
 

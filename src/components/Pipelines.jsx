@@ -248,9 +248,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
   // Lead Form Validation
   const validateLeadForm = (form) => {
     const errors = {};
-    if (!form.name.trim()) errors.name = 'Name is required';
-    if (!form.instagram_handle.trim()) errors.instagram_handle = 'Instagram handle is required';
-    if (!form.next_action.trim()) errors.next_action = 'Next action is required';
+    if (!form.name || !form.name.trim()) errors.name = 'Name is required';
     if (!form.next_action_date) errors.next_action_date = 'Next action date is required';
     return errors;
   };
@@ -276,6 +274,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
       setProcessing(true);
       await addLead({
         ...newLeadForm,
+        next_action: (newLeadForm.next_action || '').trim() || 'Decide next steps',
         notes
       });
 
@@ -307,13 +306,17 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
     e.preventDefault();
     const errors = validateLeadForm(editingLead);
     if (Object.keys(errors).length > 0) {
-      alert('Next action & Next action date are REQUIRED. Lead cannot be saved without them.');
+      alert('Name & Next action date are REQUIRED. Lead cannot be saved without them.');
       return;
     }
     
     try {
       setProcessing(true);
-      await updateLead(editingLead.id, editingLead);
+      const updatedLeadData = {
+        ...editingLead,
+        next_action: (editingLead.next_action || '').trim() || 'Decide next steps'
+      };
+      await updateLead(editingLead.id, updatedLeadData);
       setEditingLead(null);
     } catch (err) {
       console.error(err);

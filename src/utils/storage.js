@@ -314,29 +314,34 @@ export async function addLead(lead) {
     window.dispatchEvent(new Event('goe_state_change'));
   }
 
+  const insertPayload = {
+    user_id: user.id,
+    name: tempLead.name,
+    instagram_handle: tempLead.instagram_handle,
+    avatar: tempLead.avatar,
+    niche: tempLead.niche,
+    city: tempLead.city,
+    source: tempLead.source,
+    stage: tempLead.stage,
+    deal_value: tempLead.deal_value,
+    next_action: tempLead.next_action,
+    next_action_date: tempLead.next_action_date,
+    last_touch_date: tempLead.last_touch_date,
+    created_date: tempLead.created_date,
+    notes: tempLead.notes,
+    monthly_retainer: tempLead.monthly_retainer,
+    start_date: tempLead.start_date,
+    videos_per_month: tempLead.videos_per_month,
+    lost_reason: tempLead.lost_reason
+  };
+
+  if (tempLead.phone) {
+    insertPayload.phone = tempLead.phone;
+  }
+
   const { data, error } = await supabase
     .from('leads')
-    .insert({
-      user_id: user.id,
-      name: tempLead.name,
-      instagram_handle: tempLead.instagram_handle,
-      avatar: tempLead.avatar,
-      niche: tempLead.niche,
-      city: tempLead.city,
-      phone: tempLead.phone || null,
-      source: tempLead.source,
-      stage: tempLead.stage,
-      deal_value: tempLead.deal_value,
-      next_action: tempLead.next_action,
-      next_action_date: tempLead.next_action_date,
-      last_touch_date: tempLead.last_touch_date,
-      created_date: tempLead.created_date,
-      notes: tempLead.notes,
-      monthly_retainer: tempLead.monthly_retainer,
-      start_date: tempLead.start_date,
-      videos_per_month: tempLead.videos_per_month,
-      lost_reason: tempLead.lost_reason
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
@@ -412,6 +417,9 @@ export async function updateLead(leadId, updates) {
   const filteredUpdates = {};
   for (const col of dbColumns) {
     if (col in updates) {
+      if (col === 'phone' && !updates[col]) {
+        continue;
+      }
       filteredUpdates[col] = updates[col];
     }
   }
