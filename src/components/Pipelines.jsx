@@ -295,7 +295,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
       setIsAddModalOpen(false);
     } catch (err) {
       console.error(err);
-      alert('Failed to add lead to Supabase database.');
+      alert(`Failed to add lead to Supabase database: ${err.message || err.details || JSON.stringify(err)}`);
     } finally {
       setProcessing(false);
     }
@@ -320,7 +320,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
       setEditingLead(null);
     } catch (err) {
       console.error(err);
-      alert('Failed to update lead details in Supabase.');
+      alert(`Failed to update lead details in Supabase: ${err.message || err.details || JSON.stringify(err)}`);
     } finally {
       setProcessing(false);
     }

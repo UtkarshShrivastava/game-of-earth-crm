@@ -153,28 +153,33 @@ export default function QuickLogModal({ isOpen, onClose }) {
       }
     ];
 
-    await addLead({
-      ...leadForm,
-      instagram_handle: leadForm.instagram_handle.trim(),
-      next_action: leadForm.next_action.trim() || 'Decide next steps',
-      notes
-    });
+    try {
+      await addLead({
+        ...leadForm,
+        instagram_handle: leadForm.instagram_handle.trim(),
+        next_action: leadForm.next_action.trim() || 'Decide next steps',
+        notes
+      });
 
-    // Reset
-    setLeadForm({
-      name: '',
-      instagram_handle: '',
-      niche: '',
-      city: '',
-      phone: '',
-      source: 'DM Outreach',
-      stage: 'To DM',
-      deal_value: '',
-      next_action: '',
-      next_action_date: getLocalDateString()
-    });
-    setLeadErrors({});
-    onClose();
+      // Reset
+      setLeadForm({
+        name: '',
+        instagram_handle: '',
+        niche: '',
+        city: '',
+        phone: '',
+        source: 'DM Outreach',
+        stage: 'To DM',
+        deal_value: '',
+        next_action: '',
+        next_action_date: getLocalDateString()
+      });
+      setLeadErrors({});
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to add lead to Supabase database: ${err.message || err.details || JSON.stringify(err)}`);
+    }
   };
 
   // Log payment collection submit
