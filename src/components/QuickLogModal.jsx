@@ -38,6 +38,7 @@ export default function QuickLogModal({ isOpen, onClose }) {
     niche: '',
     city: '',
     source: 'DM Outreach',
+    stage: 'To DM',
     deal_value: '',
     next_action: '',
     next_action_date: getLocalDateString()
@@ -155,7 +156,6 @@ export default function QuickLogModal({ isOpen, onClose }) {
 
     await addLead({
       ...leadForm,
-      stage: 'To DM',
       notes
     });
 
@@ -166,6 +166,7 @@ export default function QuickLogModal({ isOpen, onClose }) {
       niche: '',
       city: '',
       source: 'DM Outreach',
+      stage: 'To DM',
       deal_value: '',
       next_action: '',
       next_action_date: getLocalDateString()
@@ -357,6 +358,35 @@ export default function QuickLogModal({ isOpen, onClose }) {
                   onChange={e => setLeadForm({ ...leadForm, instagram_handle: e.target.value })}
                 />
                 {leadErrors.instagram_handle && <span style={{ color: 'var(--red)', fontSize: '10px' }}>{leadErrors.instagram_handle}</span>}
+              </div>
+
+              <div className="form-row">
+                <div className="form-group" style={{ flex: 1.2 }}>
+                  <label>Lead Source*</label>
+                  <select 
+                    className="form-control"
+                    value={leadForm.source}
+                    onChange={e => {
+                      const sourceVal = e.target.value;
+                      const stageVal = sourceVal === 'DM Outreach' ? 'To DM' : 'Replied';
+                      setLeadForm({ ...leadForm, source: sourceVal, stage: stageVal });
+                    }}
+                  >
+                    <option value="DM Outreach">DM Outreach (Outbound)</option>
+                    <option value="Organic Inbound">Organic Inbound (DM Recieved)</option>
+                    <option value="Facebook Ads">Facebook Ads (Ad Inbound)</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ flex: 0.8 }}>
+                  <label>Pipeline Stage</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                    value={leadForm.stage === 'To DM' ? 'To DM (Outreach)' : 'Replied (DM Recd)'} 
+                    disabled 
+                  />
+                </div>
               </div>
 
               <div className="form-row">

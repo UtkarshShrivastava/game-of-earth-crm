@@ -619,13 +619,32 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
                   <select 
                     className="form-control"
                     value={newLeadForm.source}
-                    onChange={e => setNewLeadForm({ ...newLeadForm, source: e.target.value })}
+                    onChange={e => {
+                      const src = e.target.value;
+                      const stg = src === 'DM Outreach' ? 'To DM' : 'Replied';
+                      setNewLeadForm({ ...newLeadForm, source: src, stage: stg });
+                    }}
                   >
-                    <option value="DM Outreach">DM Outreach</option>
-                    <option value="Organic Inbound">Organic Inbound</option>
-                    <option value="Facebook Ads">Facebook Ads</option>
+                    <option value="DM Outreach">DM Outreach (Outbound)</option>
+                    <option value="Organic Inbound">Organic Inbound (DM Recieved)</option>
+                    <option value="Facebook Ads">Facebook Ads (Ad Inbound)</option>
                   </select>
                 </div>
+                <div className="form-group">
+                  <label>Pipeline Stage</label>
+                  <select 
+                    className="form-control"
+                    value={newLeadForm.stage}
+                    onChange={e => setNewLeadForm({ ...newLeadForm, stage: e.target.value })}
+                  >
+                    {PIPELINE_STAGES.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
                 <div className="form-group">
                   <label>Deal Value (Monthly Retainer ₹)</label>
                   <input 

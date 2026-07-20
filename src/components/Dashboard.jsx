@@ -180,6 +180,77 @@ export default function Dashboard({ onNavigateToLead, onNavigate }) {
   const funnel = getFunnelSnapshot(leads, dailyLogs);
   const direction = getDirectionSplit(leads);
 
+  const getSourceAnalytics = () => {
+    const sources = ['DM Outreach', 'Organic Inbound', 'Facebook Ads'];
+    
+    return sources.map(source => {
+      const sourceLeads = leads.filter(l => l.source === source);
+      const total = sourceLeads.length;
+      const won = sourceLeads.filter(l => l.stage === 'Won').length;
+      const active = sourceLeads.filter(l => !['Won', 'Lost'].includes(l.stage)).length;
+      const lost = sourceLeads.filter(l => l.stage === 'Lost').length;
+      
+      const conversionRate = total > 0 ? Math.round((won / total) * 100) : 0;
+      
+      // Calculate revenue closed
+      const closedRevenue = sourceLeads
+        .filter(l => l.stage === 'Won')
+        .reduce((sum, l) => sum + (l.monthly_retainer || l.deal_value || 0), 0);
+        
+      // Average deal value
+      const avgDealValue = won > 0 ? Math.round(closedRevenue / won) : 0;
+
+      // Pipeline bottleneck advisor logic
+      let bottleneck = 'Healthy funnel velocity. Focus on high outreach volume!';
+      if (total > 0) {
+        if (source === 'DM Outreach') {
+          const toDm = sourceLeads.filter(l => l.stage === 'To DM').length;
+          const dmSent = sourceLeads.filter(l => l.stage === 'DM Sent').length;
+          const replied = sourceLeads.filter(l => l.stage === 'Replied').length;
+          const videoSent = sourceLeads.filter(l => l.stage === 'Free Video Sent').length;
+          const booked = sourceLeads.filter(l => l.stage === 'Meeting Booked').length;
+
+          if (toDm > total * 0.4) {
+            bottleneck = 'High backlog in "To DM". Send more cold outreach DMs today! 🏋️';
+          } else if (dmSent > total * 0.4 && replied === 0) {
+            bottleneck = 'Low reply rate. Optimize your outbound DM hook/first line! 🪝';
+          } else if (replied > total * 0.3 && videoSent === 0) {
+            bottleneck = 'Friction after replies. Deliver value (free loom video) faster! 🎥';
+          } else if (videoSent > total * 0.3 && booked === 0) {
+            bottleneck = 'Low meeting bookings. Make your video call-to-actions more direct! 📈';
+          } else if (booked > total * 0.3 && won === 0) {
+            bottleneck = 'Closing bottleneck. Improve your closing pitch or retainer offer! 🤝';
+          }
+        } else {
+          // Inbound channels: Organic Inbound / Ads
+          const replied = sourceLeads.filter(l => l.stage === 'Replied').length;
+          const videoSent = sourceLeads.filter(l => l.stage === 'Free Video Sent').length;
+          const booked = sourceLeads.filter(l => l.stage === 'Meeting Booked').length;
+
+          if (replied > total * 0.4 && videoSent === 0) {
+            bottleneck = 'Conversation drop-off. Send the free value video sooner! 🎥';
+          } else if (videoSent > total * 0.3 && booked === 0) {
+            bottleneck = 'Low meeting book rate. Send a direct booking scheduler link! 📅';
+          } else if (booked > total * 0.3 && won === 0) {
+            bottleneck = 'Closing bottleneck. Refine your closing call script & follow-ups! 🏆';
+          }
+        }
+      }
+
+      return {
+        source,
+        total,
+        won,
+        active,
+        lost,
+        conversionRate,
+        closedRevenue,
+        avgDealValue,
+        bottleneck
+      };
+    });
+  };
+
   // Toggle content posted today
   const handleToggleContent = async () => {
     await incrementLogCount(todayStr, 'content_posted');
@@ -769,6 +840,84 @@ export default function Dashboard({ onNavigateToLead, onNavigate }) {
             })}
           </div>
         )}
+      </div>
+
+      {/* Lead Source & Conversion Science */}
+      <div className="panel" style={{ gridColumn: 'span 2' }}>
+        <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Activity size={16} color="var(--amber)" /> Lead Source & Conversion Science
+        </h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '-8px', marginBottom: '16px' }}>
+          Real-time pipeline tracking and auto-calculated funnel bottlenecks for each source channel.
+        </p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          {getSourceAnalytics().map((item, idx) => {
+            const colors = {
+              'DM Outreach': 'var(--amber)',
+              'Organic Inbound': 'var(--cyan)',
+              'Facebook Ads': 'var(--green)'
+            };
+            const currentBg = {
+              'DM Outreach': 'rgba(245, 158, 11, 0.03)',
+              'Organic Inbound': 'rgba(6, 182, 212, 0.03)',
+              'Facebook Ads': 'rgba(16, 185, 129, 0.03)'
+            };
+            const iconColor = colors[item.source] || 'var(--text-secondary)';
+            
+            return (
+              <div key={idx} style={{ background: currentBg[item.source] || 'var(--bg-darker)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '14px', color: iconColor }}>
+                      {item.source === 'Organic Inbound' ? '★ Organic Inbound' : item.source}
+                    </span>
+                    <span style={{ fontSize: '11px', background: 'var(--bg-darker)', padding: '2px 8px', borderRadius: '12px', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      {item.total} Total Leads
+                    </span>
+                  </div>
+                  
+                  {/* Grid of stats */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', margin: '12px 0 6px 0' }}>
+                    <div>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Won / Active</span>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {item.won} <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Won</span> / {item.active} <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Active</span>
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Closed Revenue</span>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)' }}>
+                        {formatRupee(item.closedRevenue)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Conversion progress bar */}
+                  <div style={{ margin: '10px 0 6px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', fontSize: '11px' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Conversion Success:</span>
+                      <span style={{ fontWeight: 700, color: item.conversionRate > 20 ? 'var(--green)' : 'var(--amber)' }}>{item.conversionRate}%</span>
+                    </div>
+                    <div style={{ height: '6px', background: 'var(--bg-darker)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: item.conversionRate > 20 ? 'var(--green)' : 'var(--amber)', width: `${item.conversionRate}%`, transition: 'width 0.3s ease' }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottleneck Advisor */}
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 12px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--amber)', display: 'block', textTransform: 'uppercase', marginBottom: '2px', letterSpacing: '0.05em' }}>
+                    🤖 Pipeline Science Insight:
+                  </span>
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                    {item.bottleneck}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Funnel Snapshot */}
