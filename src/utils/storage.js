@@ -387,6 +387,35 @@ export async function updateLead(leadId, updates) {
     }
   }
 
+  const dbColumns = [
+    'user_id',
+    'name',
+    'instagram_handle',
+    'avatar',
+    'niche',
+    'city',
+    'phone',
+    'source',
+    'stage',
+    'deal_value',
+    'next_action',
+    'next_action_date',
+    'last_touch_date',
+    'created_date',
+    'notes',
+    'monthly_retainer',
+    'start_date',
+    'videos_per_month',
+    'lost_reason'
+  ];
+
+  const filteredUpdates = {};
+  for (const col of dbColumns) {
+    if (col in updates) {
+      filteredUpdates[col] = updates[col];
+    }
+  }
+
   const { data: serverOriginal } = await supabase
     .from('leads')
     .select('*')
@@ -399,8 +428,8 @@ export async function updateLead(leadId, updates) {
   const noteAdded = updates.notes && updates.notes.length > (serverOriginal.notes?.length || 0);
 
   const fieldsToUpdate = {
-    ...updates,
-    last_touch_date: (stageChanged || noteAdded) ? new Date().toISOString() : serverOriginal.last_touch_date
+    ...filteredUpdates,
+    last_touch_date: (stageChanged || noteAdded) ? new Date().toISOString() : (updates.last_touch_date || serverOriginal.last_touch_date)
   };
 
   if (fieldsToUpdate.stage === 'Won' && serverOriginal.stage !== 'Won') {
@@ -418,7 +447,7 @@ export async function updateLead(leadId, updates) {
 
   if (error) {
     console.error('updateLead database error:', error);
-    return null;
+    throw error;
   }
 
   if (cacheLeads) {
