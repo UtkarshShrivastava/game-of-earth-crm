@@ -402,7 +402,9 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
       {/* Kanban Board */}
       <div className="kanban-board" ref={boardRef}>
         {PIPELINE_STAGES.map(stage => {
-          const stageLeads = filteredLeads.filter(l => l.stage === stage);
+          const stageLeads = filteredLeads
+            .filter(l => l.stage === stage)
+            .sort((a, b) => (b.score || 0) - (a.score || 0));
           const stageTotalWorth = stageLeads.reduce((acc, l) => acc + (l.deal_value || 0), 0);
           
           return (
@@ -442,8 +444,24 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
                     >
                       <div className="card-header">
                         <div className="card-details">
-                          <span className="card-name">
+                          <span className="card-name" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                             {lead.source === 'Organic Inbound' && '★ '}{lead.name}
+                            {lead.stage !== 'Won' && lead.stage !== 'Lost' && (
+                              <span style={{ 
+                                fontSize: '8px', 
+                                fontWeight: 800, 
+                                color: scoreCategory.color, 
+                                border: `1px solid ${scoreCategory.color}`, 
+                                padding: '1px 4px', 
+                                borderRadius: '3px',
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                textTransform: 'uppercase',
+                                lineHeight: '1',
+                                display: 'inline-block'
+                              }}>
+                                {scoreCategory.label}
+                              </span>
+                            )}
                           </span>
                           <span className="card-handle">{lead.instagram_handle}</span>
                         </div>
