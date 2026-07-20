@@ -348,11 +348,29 @@ export async function addLead(lead) {
     insertPayload.priority = tempLead.priority;
   }
 
-  const { data, error } = await supabase
+  let result = await supabase
     .from('leads')
     .insert(insertPayload)
     .select()
     .single();
+
+  let data = result.data;
+  let error = result.error;
+
+  if (error && error.message && (error.message.includes("column") || error.code === "PGRST204")) {
+    console.warn("Table is missing custom columns. Retrying insert without custom fields...");
+    delete insertPayload.phone;
+    delete insertPayload.priority;
+
+    const retryResult = await supabase
+      .from('leads')
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    data = retryResult.data;
+    error = retryResult.error;
+  }
 
   if (error) {
     if (cacheLeads) {
@@ -459,12 +477,31 @@ export async function updateLead(leadId, updates) {
     fieldsToUpdate.videos_per_month = fieldsToUpdate.videos_per_month || 8;
   }
 
-  const { data, error } = await supabase
+  let result = await supabase
     .from('leads')
     .update(fieldsToUpdate)
     .eq('id', leadId)
     .select()
     .single();
+
+  let data = result.data;
+  let error = result.error;
+
+  if (error && error.message && (error.message.includes("column") || error.code === "PGRST204")) {
+    console.warn("Table is missing custom columns. Retrying update without custom fields...");
+    delete fieldsToUpdate.phone;
+    delete fieldsToUpdate.priority;
+
+    const retryResult = await supabase
+      .from('leads')
+      .update(fieldsToUpdate)
+      .eq('id', leadId)
+      .select()
+      .single();
+
+    data = retryResult.data;
+    error = retryResult.error;
+  }
 
   if (error) {
     console.error('updateLead database error:', error);
