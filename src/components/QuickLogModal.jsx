@@ -37,6 +37,7 @@ export default function QuickLogModal({ isOpen, onClose }) {
     instagram_handle: '',
     niche: '',
     city: '',
+    phone: '',
     source: 'DM Outreach',
     stage: 'To DM',
     deal_value: '',
@@ -165,6 +166,7 @@ export default function QuickLogModal({ isOpen, onClose }) {
       instagram_handle: '',
       niche: '',
       city: '',
+      phone: '',
       source: 'DM Outreach',
       stage: 'To DM',
       deal_value: '',
@@ -348,16 +350,28 @@ export default function QuickLogModal({ isOpen, onClose }) {
                 {leadErrors.name && <span style={{ color: 'var(--red)', fontSize: '10px' }}>{leadErrors.name}</span>}
               </div>
 
-              <div className="form-group">
-                <label>Instagram Handle*</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="@rohan_growth" 
-                  value={leadForm.instagram_handle}
-                  onChange={e => setLeadForm({ ...leadForm, instagram_handle: e.target.value })}
-                />
-                {leadErrors.instagram_handle && <span style={{ color: 'var(--red)', fontSize: '10px' }}>{leadErrors.instagram_handle}</span>}
+              <div className="form-row">
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Instagram Handle*</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="@rohan_growth" 
+                    value={leadForm.instagram_handle}
+                    onChange={e => setLeadForm({ ...leadForm, instagram_handle: e.target.value })}
+                  />
+                  {leadErrors.instagram_handle && <span style={{ color: 'var(--red)', fontSize: '10px' }}>{leadErrors.instagram_handle}</span>}
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Phone Number</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="E.g. +91 98765 43210" 
+                    value={leadForm.phone}
+                    onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="form-row">

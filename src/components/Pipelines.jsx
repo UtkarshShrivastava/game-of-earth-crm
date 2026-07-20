@@ -48,6 +48,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
     instagram_handle: '',
     niche: '',
     city: '',
+    phone: '',
     source: 'DM Outreach',
     stage: 'To DM',
     deal_value: '',
@@ -284,6 +285,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
         instagram_handle: '',
         niche: '',
         city: '',
+        phone: '',
         source: 'DM Outreach',
         stage: 'To DM',
         deal_value: '',
@@ -615,6 +617,19 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
 
               <div className="form-row">
                 <div className="form-group">
+                  <label>Phone Number</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="E.g. +91 98765 43210"
+                    value={newLeadForm.phone || ''} 
+                    onChange={e => setNewLeadForm({ ...newLeadForm, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
                   <label>Lead Source</label>
                   <select 
                     className="form-control"
@@ -755,6 +770,18 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
                       className="form-control"
                       value={editingLead.city || ''}
                       onChange={e => setEditingLead({ ...editingLead, city: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Phone Number</label>
+                    <input 
+                      type="text" 
+                      className="form-control"
+                      value={editingLead.phone || ''}
+                      onChange={e => setEditingLead({ ...editingLead, phone: e.target.value })}
                     />
                   </div>
                 </div>
