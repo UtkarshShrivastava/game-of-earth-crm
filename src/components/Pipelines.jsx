@@ -49,6 +49,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
     niche: '',
     city: '',
     phone: '',
+    priority: '',
     source: 'DM Outreach',
     stage: 'To DM',
     deal_value: '',
@@ -285,6 +286,7 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
         niche: '',
         city: '',
         phone: '',
+        priority: '',
         source: 'DM Outreach',
         stage: 'To DM',
         deal_value: '',
@@ -691,6 +693,19 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
                     onChange={e => setNewLeadForm({ ...newLeadForm, deal_value: e.target.value })}
                   />
                 </div>
+                <div className="form-group">
+                  <label>Priority Override</label>
+                  <select 
+                    className="form-control"
+                    value={newLeadForm.priority || ''}
+                    onChange={e => setNewLeadForm({ ...newLeadForm, priority: e.target.value })}
+                  >
+                    <option value="">🤖 Auto-Calculate (Scientific)</option>
+                    <option value="High">🔴 High Priority (Force to Top)</option>
+                    <option value="Medium">🟡 Medium Priority</option>
+                    <option value="Low">⚪ Low Priority</option>
+                  </select>
+                </div>
               </div>
 
               <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0', paddingTop: '14px' }}>
@@ -828,6 +843,22 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
                       value={editingLead.deal_value || ''}
                       onChange={e => setEditingLead({ ...editingLead, deal_value: Number(e.target.value) })}
                     />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Priority Override</label>
+                    <select 
+                      className="form-control"
+                      value={editingLead.priority || ''}
+                      onChange={e => setEditingLead({ ...editingLead, priority: e.target.value })}
+                    >
+                      <option value="">🤖 Auto-Calculate (Scientific)</option>
+                      <option value="High">🔴 High (Force to Top)</option>
+                      <option value="Medium">🟡 Medium</option>
+                      <option value="Low">⚪ Low</option>
+                    </select>
                   </div>
                 </div>
 

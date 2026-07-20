@@ -38,6 +38,7 @@ export default function QuickLogModal({ isOpen, onClose }) {
     niche: '',
     city: '',
     phone: '',
+    priority: '',
     source: 'DM Outreach',
     stage: 'To DM',
     deal_value: '',
@@ -168,6 +169,7 @@ export default function QuickLogModal({ isOpen, onClose }) {
         niche: '',
         city: '',
         phone: '',
+        priority: '',
         source: 'DM Outreach',
         stage: 'To DM',
         deal_value: '',
@@ -419,6 +421,9 @@ export default function QuickLogModal({ isOpen, onClose }) {
                     onChange={e => setLeadForm({ ...leadForm, niche: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div className="form-row">
                 <div className="form-group">
                   <label>Deal Value (₹ monthly)</label>
                   <input 
@@ -428,6 +433,19 @@ export default function QuickLogModal({ isOpen, onClose }) {
                     value={leadForm.deal_value}
                     onChange={e => setLeadForm({ ...leadForm, deal_value: e.target.value })}
                   />
+                </div>
+                <div className="form-group">
+                  <label>Priority Override</label>
+                  <select 
+                    className="form-control"
+                    value={leadForm.priority || ''}
+                    onChange={e => setLeadForm({ ...leadForm, priority: e.target.value })}
+                  >
+                    <option value="">🤖 Auto (Scientific)</option>
+                    <option value="High">🔴 High (Force Top)</option>
+                    <option value="Medium">🟡 Medium</option>
+                    <option value="Low">⚪ Low</option>
+                  </select>
                 </div>
               </div>
 

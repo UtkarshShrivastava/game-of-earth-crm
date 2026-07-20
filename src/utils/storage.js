@@ -36,6 +36,10 @@ export function formatRupee(amount) {
 // Pure in-memory computations
 export function calculateLeadScore(lead) {
   if (lead.stage === 'Lost') return 0;
+
+  if (lead.priority === 'High') return 99;
+  if (lead.priority === 'Medium') return 60;
+  if (lead.priority === 'Low') return 20;
   
   let score = 15;
   
@@ -288,6 +292,7 @@ export async function addLead(lead) {
     niche: lead.niche || '',
     city: lead.city || '',
     phone: lead.phone || '',
+    priority: lead.priority || null,
     source: lead.source || 'DM Outreach',
     stage: lead.stage || 'To DM',
     deal_value: Number(lead.deal_value) || 0,
@@ -337,6 +342,10 @@ export async function addLead(lead) {
 
   if (tempLead.phone) {
     insertPayload.phone = tempLead.phone;
+  }
+  
+  if (tempLead.priority) {
+    insertPayload.priority = tempLead.priority;
   }
 
   const { data, error } = await supabase
@@ -400,6 +409,7 @@ export async function updateLead(leadId, updates) {
     'niche',
     'city',
     'phone',
+    'priority',
     'source',
     'stage',
     'deal_value',
@@ -418,6 +428,9 @@ export async function updateLead(leadId, updates) {
   for (const col of dbColumns) {
     if (col in updates) {
       if (col === 'phone' && !updates[col]) {
+        continue;
+      }
+      if (col === 'priority' && !updates[col]) {
         continue;
       }
       filteredUpdates[col] = updates[col];
