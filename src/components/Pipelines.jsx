@@ -57,6 +57,10 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
 
   const [formErrors, setFormErrors] = useState({});
 
+  // Note input state - must be declared before any early returns (Rules of Hooks)
+  const [customNoteText, setCustomNoteText] = useState('');
+  const [customNoteType, setCustomNoteType] = useState('custom');
+
   useEffect(() => {
     const loadLeads = async () => {
       try {
@@ -333,8 +337,6 @@ export default function Pipelines({ activeLeadId, clearActiveLeadId }) {
   };
 
   // Add custom note during lead edit
-  const [customNoteText, setCustomNoteText] = useState('');
-  const [customNoteType, setCustomNoteType] = useState('custom');
 
   const handleAddNote = () => {
     if (!customNoteText.trim()) return;
