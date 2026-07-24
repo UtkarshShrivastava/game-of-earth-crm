@@ -26,6 +26,7 @@ const PIPELINE_STAGES = [
   'Replied',
   'Free Video Sent',
   'Meeting Booked',
+  'Follow-up / Waiting',
   'Won',
   'Lost'
 ];

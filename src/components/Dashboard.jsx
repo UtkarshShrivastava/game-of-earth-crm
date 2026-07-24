@@ -209,6 +209,7 @@ export default function Dashboard({ onNavigateToLead, onNavigate }) {
           const replied = sourceLeads.filter(l => l.stage === 'Replied').length;
           const videoSent = sourceLeads.filter(l => l.stage === 'Free Video Sent').length;
           const booked = sourceLeads.filter(l => l.stage === 'Meeting Booked').length;
+          const waiting = sourceLeads.filter(l => l.stage === 'Follow-up / Waiting').length;
 
           if (toDm > total * 0.4) {
             bottleneck = 'High backlog in "To DM". Send more cold outreach DMs today! 🏋️';
@@ -218,21 +219,26 @@ export default function Dashboard({ onNavigateToLead, onNavigate }) {
             bottleneck = 'Friction after replies. Deliver value (free loom video) faster! 🎥';
           } else if (videoSent > total * 0.3 && booked === 0) {
             bottleneck = 'Low meeting bookings. Make your video call-to-actions more direct! 📈';
-          } else if (booked > total * 0.3 && won === 0) {
-            bottleneck = 'Closing bottleneck. Improve your closing pitch or retainer offer! 🤝';
+          } else if (booked > total * 0.3 && waiting === 0) {
+            bottleneck = 'Outreach backlog. Send follow-up or proposal message to booked meetings! 📨';
+          } else if (waiting > total * 0.3 && won === 0) {
+            bottleneck = 'Closing bottleneck. Client is pending/ghosting. Refine your closing proposal/offer! 🤝';
           }
         } else {
           // Inbound channels: Organic Inbound / Ads
           const replied = sourceLeads.filter(l => l.stage === 'Replied').length;
           const videoSent = sourceLeads.filter(l => l.stage === 'Free Video Sent').length;
           const booked = sourceLeads.filter(l => l.stage === 'Meeting Booked').length;
+          const waiting = sourceLeads.filter(l => l.stage === 'Follow-up / Waiting').length;
 
           if (replied > total * 0.4 && videoSent === 0) {
             bottleneck = 'Conversation drop-off. Send the free value video sooner! 🎥';
           } else if (videoSent > total * 0.3 && booked === 0) {
             bottleneck = 'Low meeting book rate. Send a direct booking scheduler link! 📅';
-          } else if (booked > total * 0.3 && won === 0) {
-            bottleneck = 'Closing bottleneck. Refine your closing call script & follow-ups! 🏆';
+          } else if (booked > total * 0.3 && waiting === 0) {
+            bottleneck = 'Outreach backlog. Send follow-up or proposal message to booked meetings! 📨';
+          } else if (waiting > total * 0.3 && won === 0) {
+            bottleneck = 'Closing bottleneck. Client is pending/ghosting. Refine your closing proposal/offer! 🤝';
           }
         }
       }

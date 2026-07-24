@@ -61,7 +61,10 @@ export function calculateLeadScore(lead) {
       score += 45;
       break;
     case 'Meeting Booked':
-      score += 75;
+      score += 65;
+      break;
+    case 'Follow-up / Waiting':
+      score += 80;
       break;
     case 'Won':
       score += 85;
